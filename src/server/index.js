@@ -49,7 +49,7 @@ app.get('/v1/models', async (req, res) => {
 });
 
 app.post('/v1/chat/completions', async (req, res) => {
-  const { messages, model, stream = true, tools, ...params} = req.body;
+  const { messages, model = 'gemini-2.5-pro', stream = true, tools, ...params} = req.body;
   try {
     
     if (!messages) {

@@ -33,13 +33,6 @@ function processStreamLine(line, state, callback) {
           } else {
             callback({ type: 'thinking', content: part.text || '' });
           }
-        } else if (part.text !== undefined) {
-          if (state.thinkingStarted) {
-            callback({ type: 'text', content: '\n</think>\n' + part.text });
-            state.thinkingStarted = false;
-          } else {
-            callback({ type: 'text', content: part.text });
-          }
         } else if (part.functionCall) {
           state.toolCalls.push({
             id: part.functionCall.id || generateToolCallId(),
@@ -49,6 +42,14 @@ function processStreamLine(line, state, callback) {
               arguments: JSON.stringify(part.functionCall.args)
             }
           });
+        } else {
+          const text = part.text || '';
+          if (state.thinkingStarted) {
+            callback({ type: 'text', content: '\n</think>\n' + text });
+            state.thinkingStarted = false;
+          } else if (text) {
+            callback({ type: 'text', content: text });
+          }
         }
       }
     }
