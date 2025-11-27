@@ -28,16 +28,18 @@ function processStreamLine(line, state, callback) {
       for (const part of parts) {
         if (part.thought === true) {
           if (!state.thinkingStarted) {
-            callback({ type: 'thinking', content: '<think>\n' });
+            callback({ type: 'thinking', content: '<think>\n' + (part.text || '') });
             state.thinkingStarted = true;
+          } else {
+            callback({ type: 'thinking', content: part.text || '' });
           }
-          callback({ type: 'thinking', content: part.text || '' });
         } else if (part.text !== undefined) {
           if (state.thinkingStarted) {
-            callback({ type: 'thinking', content: '\n</think>\n' });
+            callback({ type: 'text', content: '\n</think>\n' + part.text });
             state.thinkingStarted = false;
+          } else {
+            callback({ type: 'text', content: part.text });
           }
-          callback({ type: 'text', content: part.text });
         } else if (part.functionCall) {
           state.toolCalls.push({
             id: part.functionCall.id || generateToolCallId(),
@@ -51,13 +53,17 @@ function processStreamLine(line, state, callback) {
       }
     }
     
-    if (data.response?.candidates?.[0]?.finishReason && state.toolCalls.length > 0) {
+    // 当响应结束时，确保关闭思考标签
+    const finishReason = data.response?.candidates?.[0]?.finishReason;
+    if (finishReason) {
       if (state.thinkingStarted) {
         callback({ type: 'thinking', content: '\n</think>\n' });
         state.thinkingStarted = false;
       }
-      callback({ type: 'tool_calls', tool_calls: state.toolCalls });
-      state.toolCalls = [];
+      if (state.toolCalls.length > 0) {
+        callback({ type: 'tool_calls', tool_calls: state.toolCalls });
+        state.toolCalls = [];
+      }
     }
   } catch (e) {
     // 忽略解析错误
@@ -244,6 +250,8 @@ export async function generateAssistantResponseNoStream(requestBody) {
     }
   }
   
+  // thinkingContent 会在服务端通过 reasoning_content 字段处理
+  // 非流式模式下直接用标签包裹
   if (thinkingContent) {
     content = `<think>\n${thinkingContent}\n</think>\n${content}`;
   }
