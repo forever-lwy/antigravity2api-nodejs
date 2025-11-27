@@ -28,10 +28,13 @@ function processStreamLine(line, state, callback) {
       for (const part of parts) {
         if (part.thought === true) {
           if (!state.thinkingStarted) {
-            callback({ type: 'thinking', content: '<think>\n' + (part.text || '') });
+            // 先单独输出 <think>\n
+            callback({ type: 'thinking', content: '<think>\n' });
             state.thinkingStarted = true;
-          } else {
-            callback({ type: 'thinking', content: part.text || '' });
+          }
+          // 再输出思考内容
+          if (part.text) {
+            callback({ type: 'thinking', content: part.text });
           }
         } else if (part.functionCall) {
           state.toolCalls.push({
@@ -45,9 +48,11 @@ function processStreamLine(line, state, callback) {
         } else {
           const text = part.text || '';
           if (state.thinkingStarted) {
-            callback({ type: 'text', content: '\n</think>\n' + text });
+            // 思考结束，先单独输出 \n</think>\n
+            callback({ type: 'thinking', content: '\n</think>\n' });
             state.thinkingStarted = false;
-          } else if (text) {
+          }
+          if (text) {
             callback({ type: 'text', content: text });
           }
         }
@@ -58,6 +63,7 @@ function processStreamLine(line, state, callback) {
     const finishReason = data.response?.candidates?.[0]?.finishReason;
     if (finishReason) {
       if (state.thinkingStarted) {
+        // 单独输出 \n</think>\n
         callback({ type: 'thinking', content: '\n</think>\n' });
         state.thinkingStarted = false;
       }

@@ -75,7 +75,7 @@ app.post('/v1/chat/completions', async (req, res) => {
             object: 'chat.completion.chunk',
             created,
             model,
-            choices: [{ index: 0, delta: { role: 'assistant' }, finish_reason: null }]
+            choices: [{ index: 0, delta: { role: 'assistant' , content: ''}, finish_reason: null }]
           })}\n\n`);
           roleSent = true;
         }
