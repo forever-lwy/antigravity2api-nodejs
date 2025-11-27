@@ -129,7 +129,43 @@ function openaiMessageToAntigravity(openaiMessages){
   
   return antigravityMessages;
 }
-function generateGenerationConfig(parameters, enableThinking, actualModelName){
+
+function getThinkingBudget(enableThinking, actualModelName, reasoningEffort, hasThinkingSuffix) {
+  if (!enableThinking) return 0;
+  
+  // gemini-3-pro-high 固定使用 32768
+  if (actualModelName === 'gemini-3-pro-high') {
+    return 32768;
+  }
+  
+  // gemini-3-pro-low 固定使用 1024
+  if (actualModelName === 'gemini-3-pro-low') {
+    return 1024;
+  }
+  
+  // 其他模型根据 reasoning_effort 参数调节
+  const budgetMap = {
+    'low': 1024,
+    'medium': 16384,
+    'high': 32768
+  };
+  
+  // 如果有 reasoning_effort 参数，使用对应预算
+  if (reasoningEffort && budgetMap[reasoningEffort]) {
+    return budgetMap[reasoningEffort];
+  }
+  
+  // 使用 -thinking 后缀但没有 reasoning_effort，默认 medium
+  if (hasThinkingSuffix) {
+    return 16384;
+  }
+  
+  return 1024;  // 其他情况默认 1024
+}
+
+function generateGenerationConfig(parameters, enableThinking, actualModelName, hasThinkingSuffix){
+  const thinkingBudget = getThinkingBudget(enableThinking, actualModelName, parameters.reasoning_effort, hasThinkingSuffix);
+  
   const generationConfig = {
     topP: parameters.top_p ?? config.defaults.top_p,
     topK: parameters.top_k ?? config.defaults.top_k,
@@ -145,7 +181,7 @@ function generateGenerationConfig(parameters, enableThinking, actualModelName){
     ],
     thinkingConfig: {
       includeThoughts: enableThinking,
-      thinkingBudget: enableThinking ? 1024 : 0
+      thinkingBudget: thinkingBudget
     }
   }
   if (enableThinking && actualModelName.includes("claude")){
@@ -174,12 +210,17 @@ async function generateRequestBody(openaiMessages,modelName,parameters,openaiToo
     throw new Error('没有可用的token，请运行 npm run login 获取token');
   }
   
-  const enableThinking = modelName.endsWith('-thinking') || 
+  const hasThinkingSuffix = modelName.endsWith('-thinking');
+  const hasReasoningEffort = !!parameters.reasoning_effort;
+  
+  // 当有 reasoning_effort 参数时，自动开启思考
+  const enableThinking = hasThinkingSuffix || 
+    hasReasoningEffort ||
     modelName === 'gemini-2.5-pro' || 
     modelName.startsWith('gemini-3-pro-') ||
     modelName === "rev19-uic3-1p" ||
     modelName === "gpt-oss-120b-medium"
-  const actualModelName = modelName.endsWith('-thinking') ? modelName.slice(0, -9) : modelName;
+  const actualModelName = hasThinkingSuffix ? modelName.slice(0, -9) : modelName;
   
   return{
     project: token.projectId,
@@ -196,7 +237,7 @@ async function generateRequestBody(openaiMessages,modelName,parameters,openaiToo
           mode: "VALIDATED"
         }
       },
-      generationConfig: generateGenerationConfig(parameters, enableThinking, actualModelName),
+      generationConfig: generateGenerationConfig(parameters, enableThinking, actualModelName, hasThinkingSuffix),
       sessionId: token.sessionId
     },
     model: actualModelName,
