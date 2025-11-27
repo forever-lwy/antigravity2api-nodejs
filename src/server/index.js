@@ -51,11 +51,9 @@ app.get('/v1/models', async (req, res) => {
 app.post('/v1/chat/completions', async (req, res) => {
   const { messages, model = 'gemini-2.5-pro', stream = true, tools, ...params} = req.body;
   try {
-    
     if (!messages) {
       return res.status(400).json({ error: 'messages is required' });
     }
-    
     const requestBody = await generateRequestBody(messages, model, params, tools);
     //console.log(JSON.stringify(requestBody,null,2));
     
@@ -67,8 +65,21 @@ app.post('/v1/chat/completions', async (req, res) => {
       const id = `chatcmpl-${Date.now()}`;
       const created = Math.floor(Date.now() / 1000);
       let hasToolCall = false;
+      let roleSent = false;
       
       await generateAssistantResponse(requestBody, (data) => {
+        // 第一个 chunk 先下发 role，方便客户端计时与归类
+        if (!roleSent) {
+          res.write(`data: ${JSON.stringify({
+            id,
+            object: 'chat.completion.chunk',
+            created,
+            model,
+            choices: [{ index: 0, delta: { role: 'assistant' }, finish_reason: null }]
+          })}\n\n`);
+          roleSent = true;
+        }
+        
         if (data.type === 'tool_calls') {
           hasToolCall = true;
           res.write(`data: ${JSON.stringify({
@@ -78,7 +89,7 @@ app.post('/v1/chat/completions', async (req, res) => {
             model,
             choices: [{ index: 0, delta: { tool_calls: data.tool_calls }, finish_reason: null }]
           })}\n\n`);
-        } else {
+        } else if (data.type === 'thinking' || data.type === 'text') {
           res.write(`data: ${JSON.stringify({
             id,
             object: 'chat.completion.chunk',
