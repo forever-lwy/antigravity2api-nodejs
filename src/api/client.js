@@ -28,14 +28,16 @@ function processStreamLine(line, state, callback) {
       for (const part of parts) {
         if (part.thought === true) {
           if (!state.thinkingStarted) {
-            // 先单独输出 <think>\n
             callback({ type: 'thinking', content: '<think>\n' });
             state.thinkingStarted = true;
           }
-          // 再输出思考内容
-          if (part.text) {
-            callback({ type: 'thinking', content: part.text });
+          callback({ type: 'thinking', content: part.text || '' });
+        } else if (part.text !== undefined) {
+          if (state.thinkingStarted) {
+            callback({ type: 'thinking', content: '\n</think>\n' });
+            state.thinkingStarted = false;
           }
+          callback({ type: 'text', content: part.text });
         } else if (part.functionCall) {
           state.toolCalls.push({
             id: part.functionCall.id || generateToolCallId(),
@@ -45,32 +47,17 @@ function processStreamLine(line, state, callback) {
               arguments: JSON.stringify(part.functionCall.args)
             }
           });
-        } else {
-          const text = part.text || '';
-          if (state.thinkingStarted) {
-            // 思考结束，先单独输出 \n</think>\n
-            callback({ type: 'thinking', content: '\n</think>\n' });
-            state.thinkingStarted = false;
-          }
-          if (text) {
-            callback({ type: 'text', content: text });
-          }
         }
       }
     }
     
-    // 当响应结束时，确保关闭思考标签
-    const finishReason = data.response?.candidates?.[0]?.finishReason;
-    if (finishReason) {
+    if (data.response?.candidates?.[0]?.finishReason && state.toolCalls.length > 0) {
       if (state.thinkingStarted) {
-        // 单独输出 \n</think>\n
         callback({ type: 'thinking', content: '\n</think>\n' });
         state.thinkingStarted = false;
       }
-      if (state.toolCalls.length > 0) {
-        callback({ type: 'tool_calls', tool_calls: state.toolCalls });
-        state.toolCalls = [];
-      }
+      callback({ type: 'tool_calls', tool_calls: state.toolCalls });
+      state.toolCalls = [];
     }
   } catch (e) {
     // 忽略解析错误
@@ -257,8 +244,6 @@ export async function generateAssistantResponseNoStream(requestBody) {
     }
   }
   
-  // thinkingContent 会在服务端通过 reasoning_content 字段处理
-  // 非流式模式下直接用标签包裹
   if (thinkingContent) {
     content = `<think>\n${thinkingContent}\n</think>\n${content}`;
   }
