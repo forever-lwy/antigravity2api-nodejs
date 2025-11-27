@@ -7,6 +7,11 @@ WORKDIR /app
 # 设置时区
 ENV TZ=Asia/Shanghai
 
+# 安装 CA 证书（解决 TLS 证书验证问题）
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 # 复制 package.json 和 package-lock.json（如果存在）
 COPY package*.json ./
 
