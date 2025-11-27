@@ -1,0 +1,32 @@
+# 依赖目录
+node_modules
+
+# Git 相关
+.git
+.gitignore
+
+# 开发文件
+*.md
+LICENSE
+.env.local
+.env.development
+
+# IDE 配置
+.vscode
+.idea
+*.swp
+*.swo
+
+# 日志文件
+*.log
+logs
+
+# 测试文件
+test
+*.test.js
+*.spec.js
+
+# Docker 文件（避免递归）
+Dockerfile
+docker-compose.yml
+.dockerignore

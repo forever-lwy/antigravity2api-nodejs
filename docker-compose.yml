@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  antigravity2api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: antigravity2api
+    restart: unless-stopped
+    ports:
+      - "8045:8045"
+    volumes:
+      # 挂载配置文件，方便修改
+      - ./config.json:/app/config.json
+      # 挂载账户数据，持久化存储
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=production
+      - TZ=Asia/Shanghai
+    # 健康检查
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8045/v1/models').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
