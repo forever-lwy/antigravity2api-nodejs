@@ -20,6 +20,9 @@ const envPath = path.join(__dirname, '../../.env');
 
 const router = express.Router();
 
+const getRefreshTokenFromRequest = (req) =>
+  req.query.refreshToken || req.params.refreshToken || req.body.refreshToken || req.body.refresh_token;
+
 // 登录接口
 router.post('/login', (req, res) => {
   const { username, password } = req.body;
@@ -53,18 +56,30 @@ router.post('/tokens', authMiddleware, (req, res) => {
   res.json(result);
 });
 
-router.put('/tokens/:refreshToken', authMiddleware, (req, res) => {
-  const { refreshToken } = req.params;
+const updateTokenHandler = (req, res) => {
+  const refreshToken = getRefreshTokenFromRequest(req);
+  if (!refreshToken) {
+    return res.status(400).json({ success: false, message: '缺少refreshToken' });
+  }
   const updates = req.body;
   const result = tokenManager.updateToken(refreshToken, updates);
   res.json(result);
-});
+};
 
-router.delete('/tokens/:refreshToken', authMiddleware, (req, res) => {
-  const { refreshToken } = req.params;
+const deleteTokenHandler = (req, res) => {
+  const refreshToken = getRefreshTokenFromRequest(req);
+  if (!refreshToken) {
+    return res.status(400).json({ success: false, message: '缺少refreshToken' });
+  }
   const result = tokenManager.deleteToken(refreshToken);
   res.json(result);
-});
+};
+
+router.put('/tokens', authMiddleware, updateTokenHandler);
+router.put('/tokens/:refreshToken', authMiddleware, updateTokenHandler);
+
+router.delete('/tokens', authMiddleware, deleteTokenHandler);
+router.delete('/tokens/:refreshToken', authMiddleware, deleteTokenHandler);
 
 router.post('/tokens/reload', authMiddleware, async (req, res) => {
   try {
@@ -192,9 +207,12 @@ router.put('/config', authMiddleware, (req, res) => {
 });
 
 // 获取指定Token的模型额度
-router.get('/tokens/:refreshToken/quotas', authMiddleware, async (req, res) => {
+const getQuotaHandler = async (req, res) => {
   try {
-    const { refreshToken } = req.params;
+    const refreshToken = getRefreshTokenFromRequest(req);
+    if (!refreshToken) {
+      return res.status(400).json({ success: false, message: '缺少refreshToken' });
+    }
     const forceRefresh = req.query.refresh === 'true';
     const tokens = tokenManager.getTokenList();
     let tokenData = tokens.find(t => t.refresh_token === refreshToken);
@@ -245,6 +263,9 @@ router.get('/tokens/:refreshToken/quotas', authMiddleware, async (req, res) => {
     logger.error('获取额度失败:', error.message);
     res.status(500).json({ success: false, message: error.message });
   }
-});
+};
+
+router.get('/tokens/quotas', authMiddleware, getQuotaHandler);
+router.get('/tokens/:refreshToken/quotas', authMiddleware, getQuotaHandler);
 
 export default router;

@@ -374,7 +374,7 @@ async function toggleToken(refreshToken, enable) {
     
     showLoading(`正在${action}Token...`);
     try {
-        const response = await fetch(`/admin/tokens/${encodeURIComponent(refreshToken)}`, {
+        const response = await fetch(`/admin/tokens?refreshToken=${encodeURIComponent(refreshToken)}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -403,7 +403,7 @@ async function deleteToken(refreshToken) {
     
     showLoading('正在删除Token...');
     try {
-        const response = await fetch(`/admin/tokens/${encodeURIComponent(refreshToken)}`, {
+        const response = await fetch(`/admin/tokens?refreshToken=${encodeURIComponent(refreshToken)}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
@@ -456,7 +456,7 @@ async function loadQuotaData(refreshToken, forceRefresh = false) {
     quotaContent.innerHTML = '<div class="quota-loading">加载中...</div>';
     
     try {
-        const url = `/admin/tokens/${encodeURIComponent(refreshToken)}/quotas${forceRefresh ? '?refresh=true' : ''}`;
+        const url = `/admin/tokens/quotas?refreshToken=${encodeURIComponent(refreshToken)}${forceRefresh ? '&refresh=true' : ''}`;
         const response = await fetch(url, {
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
