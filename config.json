@@ -13,9 +13,9 @@
   },
   "defaults": {
     "temperature": 1,
-    "topP": 0.85,
+    "topP": 0.95,
     "topK": 50,
-    "maxTokens": 8096
+    "maxTokens": 32000
   },
   "other": {
     "timeout": 180000,
