@@ -117,8 +117,16 @@ function handleToolCall(message, antigravityMessages){
 }
 function openaiMessageToAntigravity(openaiMessages){
   const antigravityMessages = [];
+  const systemPrompts = [];
+
   for (const message of openaiMessages) {
-    if (message.role === "user" || message.role === "system") {
+    if (message.role === "system") {
+      const extracted = extractImagesFromContent(message.content);
+      // 仅使用文本部分作为系统指令，保持与默认系统指令同一入口
+      if (extracted.text) {
+        systemPrompts.push(extracted.text);
+      }
+    } else if (message.role === "user") {
       const extracted = extractImagesFromContent(message.content);
       handleUserMessage(extracted, antigravityMessages);
     } else if (message.role === "assistant") {
@@ -128,7 +136,10 @@ function openaiMessageToAntigravity(openaiMessages){
     }
   }
   
-  return antigravityMessages;
+  return {
+    messages: antigravityMessages,
+    systemInstruction: systemPrompts.join('\n\n').trim()
+  };
 }
 function generateGenerationConfig(parameters, enableThinking, actualModelName){
   const generationConfig = {
@@ -193,16 +204,19 @@ function generateRequestBody(openaiMessages,modelName,parameters,openaiTools,tok
   
   const enableThinking = isEnableThinking(modelName);
   const actualModelName = modelMapping(modelName);
+  const { messages, systemInstruction } = openaiMessageToAntigravity(openaiMessages);
+  const systemInstructionText = systemInstruction || config.systemInstruction;
+  const systemInstructionBlock = systemInstructionText ? {
+    role: "user",
+    parts: [{ text: systemInstructionText }]
+  } : null;
   
   return{
     project: token.projectId,
     requestId: generateRequestId(),
     request: {
-      contents: openaiMessageToAntigravity(openaiMessages),
-      systemInstruction: {
-        role: "user",
-        parts: [{ text: config.systemInstruction }]
-      },
+      contents: messages,
+      ...(systemInstructionBlock ? { systemInstruction: systemInstructionBlock } : {}),
       tools: convertOpenAIToolsToAntigravity(openaiTools),
       toolConfig: {
         functionCallingConfig: {
